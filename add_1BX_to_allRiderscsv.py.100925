@@ -1,0 +1,86 @@
+#!/usr/bin/python3
+
+# This will add the 1BX setting to the CSV file by querying ALL the databases
+
+import sqlite3
+import csv
+import argparse
+import os
+
+# List of paths to your SQLite databases
+db_paths = [
+    "Senior.db",
+    "Vet50.db",
+    "Women.db",
+    "Youth.db",
+]
+
+# Function to query each database for the membership number
+def query_databases(membership_number):
+    for db_path in db_paths:
+        # Connect to the SQLite database
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # Query to find the race_number and IBX column
+        query = "SELECT IBX FROM riders WHERE race_number = ?"
+        cursor.execute(query, (membership_number,))
+
+        # Fetch the result
+        result = cursor.fetchone()
+
+        # Close the connection
+        conn.close()
+
+        # If we get a result, return it (we assume first match is fine)
+        if result:
+            return result[0]
+    
+    # Return None if no match found in any DB
+    return None
+
+# Main function to process the CSV file
+def process_csv(csv_file, debug=False):
+    temp_file = csv_file + ".tmp"  # Create a temporary file for writing
+
+    # Open the input CSV file and a temporary output CSV file
+    with open(csv_file, mode='r', newline='') as infile, open(temp_file, mode='w', newline='') as outfile:
+        reader = csv.DictReader(infile)
+        fieldnames = reader.fieldnames + ['1BX']  # Add the new '1BX' column
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+
+        # Write the header
+        writer.writeheader()
+
+        # Iterate over each row in the input CSV
+        for row in reader:
+            membership_number = row["Membership number"]
+
+            # Query the databases to get the 1BX value
+            result = query_databases(membership_number)
+            
+            # If no result is found, use "NULL", else use the actual result (Yes, No)
+            row['1BX'] = result if result is not None else "N/A"
+
+            # Write the updated row to the temporary CSV file
+            writer.writerow(row)
+
+            # Print debug information if requested
+            if debug:
+                print(f"Membership number: {membership_number} -> 1BX: {row['1BX']}")
+
+    # Replace the original file with the updated temp file
+    os.replace(temp_file, csv_file)
+    print(f"CSV file '{csv_file}' has been updated with 1BX values.")
+
+if __name__ == "__main__":
+    # Argument parsing to accept the CSV file path and debug flag
+    parser = argparse.ArgumentParser(description="Update CSV with 1BX values from SQLite databases.")
+    parser.add_argument("csv_file", help="Path to the CSV file")
+    parser.add_argument("--debug", action="store_true", help="Enable debug mode to print records with 1BX values")
+    
+    args = parser.parse_args()
+
+    # Process the CSV file with the provided arguments
+    process_csv(args.csv_file, debug=args.debug)
+

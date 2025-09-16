@@ -1,0 +1,33 @@
+#!/usr/bin/python3
+
+# This will sort the file based on the first field and  then the surname and write it back again.
+
+import csv
+
+def sort_csv(csv_file):
+    # Read the CSV file into a list of dictionaries
+    with open(csv_file, 'r', newline='') as file:
+        reader = csv.DictReader(file)
+        data = list(reader)
+
+    # Sort the data based on the first field in reverse alphabetical order
+    #sorted_data = sorted(data, key=lambda x: x['Entry type'], reverse=True)
+    sorted_data = sorted(data, key=lambda row: (row['Entry type'], row['Last name']))
+
+
+    # Write the sorted data back to the CSV file
+    with open(csv_file, 'w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=reader.fieldnames)
+        writer.writeheader()
+        writer.writerows(sorted_data)
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Sort CSV file by the first field in reverse alphabetical order")
+    parser.add_argument("csv_file", help="Path to the CSV file")
+    args = parser.parse_args()
+
+    sort_csv(args.csv_file)
+
+

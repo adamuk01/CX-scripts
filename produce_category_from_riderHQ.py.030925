@@ -1,0 +1,150 @@
+#!/usr/bin/python3
+import csv
+import sys
+import argparse
+
+def process_year(year):
+    """
+    Processes a year to extract the last two digits if the year is a 4-digit string.
+    Otherwise, returns the year as an integer.
+
+    Args:
+    - year: The year to process (as string or integer).
+
+    Returns:
+    - int: The last two digits of the year as an integer.
+    """
+    year_str = str(year)
+    if len(year_str) == 4:
+        # Return the last two digits of the year
+        return int(year_str[2:])
+    else:
+        # Return the year as an integer
+        return int(year_str)
+
+def categorize_dob(input_file, output_file, debug=False):
+    """
+    Categorizes participants based on their date of birth and adds an 'Age Category' column to the CSV.
+
+    Args:
+    - input_file: Path to the input CSV file.
+    - output_file: Path to the output CSV file.
+    - debug: Boolean flag to print detailed processing information.
+    
+    Returns:
+    - int: The number of rows processed.
+    - dict: A count of each age category added.
+    """
+    # Open the CSV file for reading
+    with open(input_file, 'r') as csv_file:
+        # Create a CSV reader object
+        reader = csv.DictReader(csv_file)
+        
+        # Define the fieldnames for the output file (including the new 'Age Category' column)
+        fieldnames = reader.fieldnames + ['Age Category']
+        
+        # Dictionary to count how many entries were added to each category
+        category_count = {}
+        
+        # Open the output CSV file for writing
+        with open(output_file, 'w', newline='') as output_csv:
+            # Create a CSV writer object
+            writer = csv.DictWriter(output_csv, fieldnames=fieldnames)
+            
+            # Write the header to the output file
+            writer.writeheader()
+            
+            # Track number of rows processed
+            num_rows = 0
+            
+            # Iterate through each row in the input CSV
+            for row in reader:
+                # Extract the year from the "Date of birth" field
+                rawyear = int(row['Date of birth'].split('-')[-1])
+                year = process_year(rawyear)
+                
+                # Categorize based on the year (adjusted manually for different race seasons)
+                if year in [9, 10]:
+                    category = 'U16'
+                elif year in [11, 12]:
+                    category = 'U14'
+                elif year in [13, 14]:
+                    category = 'U12'
+                elif year in [15, 16]:
+                    category = 'U10'
+                elif year in [17, 18]:
+                    category = 'U8'
+                elif year in [19, 20]:
+                    category = 'U6'
+                elif year in [7, 8]:
+                    category = "Jun"
+                elif 3 <= year <= 6:
+                    category = "U23"
+                elif 1985 <= year <= 2002:
+                    category = "Sen"
+                elif 0 <= year <= 2:
+                    category = "Sen"
+                elif 85 <= year <= 99:
+                    category = "Sen"
+                elif 80 <= year <= 84:
+                    category = "V40"
+                elif 75 <= year <= 79:
+                    category = "V45"
+                elif 70 <= year <= 74:
+                    category = "V50"
+                elif 65 <= year <= 69:
+                    category = "V55"
+                elif 60 <= year <= 64:
+                    category = "V60"
+                elif 55 <= year <= 59:
+                    category = "V65"
+                elif 10 <= year <= 54:
+                    category = "V70"
+                else:
+                    category = 'Unknown'  # Handle unexpected cases
+                
+                # Add the category to the row
+                row['Age Category'] = category
+                
+                # Update the category count
+                if category in category_count:
+                    category_count[category] += 1
+                else:
+                    category_count[category] = 1
+                
+                # Write the updated row to the output file
+                writer.writerow(row)
+                
+                # Increment the row counter
+                num_rows += 1
+
+                # Debug: Print processing information for each row
+                if debug:
+                    print(f"[DEBUG] Processed row {num_rows}: DOB = {row['Date of birth']}, Category = {category}")
+    
+    return num_rows, category_count
+
+def main():
+    # Set up argument parsing
+    parser = argparse.ArgumentParser(description="Categorize CSV based on Date of Birth and add Age Category")
+    parser.add_argument("input_file", help="Path to the input CSV file")
+    parser.add_argument("output_file", help="Path to the output CSV file")
+    parser.add_argument("-D", "--debug", action="store_true", help="Enable debug mode for printing detailed processing information")
+
+    # Parse command-line arguments
+    args = parser.parse_args()
+
+    # Call the function to process the CSV and add categories
+    num_rows, category_count = categorize_dob(args.input_file, args.output_file, debug=args.debug)
+
+    # Print a summary of the operation
+    print("\nProcessing complete.")
+    print(f"Total rows processed: {num_rows}")
+    print(f"Category breakdown (not by sex!):")
+    for category, count in category_count.items():
+        print(f"  {category}: {count} entries")
+    print(f"Updated data saved to: {args.output_file}")
+
+if __name__ == "__main__":
+    main()
+

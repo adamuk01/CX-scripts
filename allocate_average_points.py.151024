@@ -1,0 +1,81 @@
+#!/usr/bin/python3
+
+# This will allocate a rider 999 points for a particular round
+# Must provide datbase, rider number and round (from 1 to 12)
+
+import sqlite3
+import os
+import argparse
+
+def update_rider_points(db_path, race_number, round_number):
+    # Validate round_number
+    if not 1 <= round_number <= 12:
+        print("Error: Round number must be between 1 and 12.")
+        return
+
+    # Check if the database exists
+    if not os.path.exists(db_path):
+        print(f"Error: Database '{db_path}' does not exist.")
+        return
+
+    # Connect to the SQLite database
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Create dynamic column name based on the round number (e.g., r2_points)
+    round_column = f"r{round_number}_points"
+
+    try:
+        # Fetch the rider's first name, surname, and current points for the specified round
+        cursor.execute(f"""
+            SELECT firstname, surname, {round_column}
+            FROM riders
+            WHERE race_number = ?
+        """, (race_number,))
+
+        rider = cursor.fetchone()
+
+        if rider:
+            firstname, surname, current_points = rider
+            print(f"Rider found: {firstname} {surname}")
+            print(f"Current points for round {round_number}: {current_points}")
+
+            # Confirm before updating
+            confirmation = input(f"Do you want to update {firstname} {surname}'s points for round {round_number} to 999? (yes/no): ")
+            if confirmation.lower() == "yes":
+                # Update the rider's points for the specified round to 999
+                cursor.execute(f"""
+                    UPDATE riders
+                    SET {round_column} = 999
+                    WHERE race_number = ?
+                """, (race_number,))
+                conn.commit()
+                print(f"Points for round {round_number} updated to 999 for {firstname} {surname}.")
+            else:
+                print("Update canceled.")
+        else:
+            print(f"No rider found with race number {race_number}.")
+
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+    finally:
+        # Close the connection
+        conn.close()
+
+# Main function to parse command-line arguments
+def main():
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description="Update rider points in an SQLite database.")
+    parser.add_argument("db_path", type=str, help="Path to the SQLite database file.")
+    parser.add_argument("race_number", type=int, help="Race number of the rider (between 1 and 999).")
+    parser.add_argument("round_number", type=int, help="Round number (between 1 and 12).")
+
+    # Parse the arguments
+    args = parser.parse_args()
+
+    # Call the function to update the rider's points
+    update_rider_points(args.db_path, args.race_number, args.round_number)
+
+if __name__ == "__main__":
+    main()
+

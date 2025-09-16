@@ -1,0 +1,86 @@
+#!/usr/bin/python3
+
+# This script will examine the database and update the race_category_current_year based on the YOB and gender
+
+import sqlite3
+import argparse
+
+def get_race_category(yob):
+    if yob in [2019, 2020]:
+        return "U6"
+    elif yob in [2017, 2018]:
+        return "U8"
+    elif yob in [2015, 2016]:
+        return "U10"
+    elif yob in [2013, 2014]:
+        return "U12"
+    elif yob in [2011, 2012]:
+        return "U14"
+    elif yob in [2009, 2010]:
+        return "U16"
+    elif yob in [2007, 2008]:
+        return "Jun"
+    elif 2003 <= yob <= 2006:
+        return "U23"
+    elif 1985 <= yob <= 2002:
+        return "Sen"
+
+    elif 1980 <= yob <= 1984:
+        return "V40"
+    elif 1975 <= yob <= 1979:
+        return "V45"
+
+    elif 1970 <= yob <= 1974:
+        return "V50"
+    elif 1965 <= yob <= 1969:
+        return "V55"
+
+    elif 1960 <= yob <= 1964:
+        return "V60"
+    elif 1955 <= yob <= 1959:
+        return "V65"
+
+    elif 1910 <= yob <= 1954:
+        return "V70"
+    # Add more ranges as needed
+    else:
+        return None  # or some default value or action if the YOB is outside these ranges
+
+def update_race_category(database_path):
+    # Connect to the SQLite database
+    conn = sqlite3.connect(database_path)
+    cursor = conn.cursor()
+
+    # Select the required fields from the database
+    cursor.execute("SELECT id, YOB, gender FROM riders")
+    rows = cursor.fetchall()
+
+    for row in rows:
+        id, yob, gender = row
+        # Calculate the new race category based on the YOB
+        race_category = get_race_category(yob)
+
+        if race_category:
+            # Append gender to the race category
+            if gender.lower() == "female":
+                race_category += "F"
+            elif gender.lower() == "male":
+                race_category += "M"
+
+            # Update the race_category_current_year field in the database
+            cursor.execute(
+                "UPDATE riders SET race_category_current_year = ? WHERE id = ?",
+                (race_category, id)
+            )
+
+    # Commit the changes and close the connection
+    conn.commit()
+    conn.close()
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Update race category in SQLite database.')
+    parser.add_argument('database', type=str, help='Path to the SQLite database file.')
+    args = parser.parse_args()
+
+    update_race_category(args.database)
+

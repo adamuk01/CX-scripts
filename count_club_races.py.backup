@@ -1,0 +1,33 @@
+#!/usr/bin/python3
+
+import sqlite3
+import argparse
+
+def count_races_per_club(db_file):
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
+
+    # Query the database to count races per club
+    cursor.execute("SELECT club_name, SUM(races_finished) FROM riders GROUP BY club_name")
+    rows = cursor.fetchall()
+
+    # Display the results 
+    print ("Position, Club, Total races")
+    for row in rows:
+        club, total_races = row
+        print("," f"{club}, {total_races}")
+
+    conn.close()
+
+# Example usage:
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Calculate race count from DB file.")
+    parser.add_argument("input_file", help="Path to the input DB file")
+    args = parser.parse_args()
+
+    db_file = args.input_file
+
+#    print("Calculating races run by club name from ",db_file)
+
+    count_races_per_club(db_file)
+

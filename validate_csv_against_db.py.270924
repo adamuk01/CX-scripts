@@ -1,0 +1,88 @@
+#!/usr/bin/python3
+
+# Check the race numbers match in the DB file and the CSV file.
+
+import sqlite3
+import csv
+import argparse
+
+# Load data from the SQLite database
+def load_db_data(db_path):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    query = "SELECT race_number, firstname, surname FROM riders"
+    cursor.execute(query)
+    db_data = cursor.fetchall()  # Fetch all data from the query
+    conn.close()
+
+    # Normalize database data (convert to lowercase, strip spaces)
+    normalized_db_data = {
+        (first_name.strip().lower(), surname.strip().lower()): str(race_number).strip()
+        for race_number, first_name, surname in db_data
+    }
+
+    return normalized_db_data
+
+# Load data from the CSV file
+def load_csv_data(csv_path):
+    csv_data = {}
+
+    with open(csv_path, newline='', encoding='utf-8') as csvfile:
+        reader = csv.DictReader(csvfile)
+
+        for row in reader:
+            bib_number = row["Membership number"].strip()
+            first_name = row["First name"].strip().lower()
+            last_name = row["Last name"].strip().lower()
+            csv_data[(first_name, last_name)] = bib_number
+
+    return csv_data
+
+# Compare data between database and CSV
+def compare_data(db_data, csv_data):
+    mismatches = []
+
+    # Compare database entries to CSV
+    for name_key in db_data:
+        db_bib_number = db_data[name_key]
+        csv_bib_number = csv_data.get(name_key)
+
+        # If the names exist in both, but the bib number (race number) is different
+        if csv_bib_number and db_bib_number != csv_bib_number:
+            mismatches.append({
+                "first_name": name_key[0],
+                "surname": name_key[1],
+                "db_bib_number": db_bib_number,
+                "csv_bib_number": csv_bib_number
+            })
+
+    return mismatches
+
+# Main function to handle arguments and run the comparison
+def main():
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Compare SQLite database and CSV file for matching entries.")
+    parser.add_argument("db_path", help="Path to the SQLite database file.")
+    parser.add_argument("csv_path", help="Path to the CSV file.")
+    args = parser.parse_args()
+
+    # Load data
+    db_data = load_db_data(args.db_path)
+    csv_data = load_csv_data(args.csv_path)
+
+    # Compare the data
+    mismatches = compare_data(db_data, csv_data)
+
+    # Display mismatches
+    if mismatches:
+        print("Rows where race number does not match between database and CSV:")
+        for mismatch in mismatches:
+            print(f"First Name: {mismatch['first_name']}, Surname: {mismatch['surname']}")
+            print(f"  - Database Race Number: {mismatch['db_bib_number']}")
+            print(f"  - CSV Bib Number: {mismatch['csv_bib_number']}")
+    else:
+        print("No mismatches found.")
+
+if __name__ == "__main__":
+    main()
+

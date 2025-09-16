@@ -1,0 +1,116 @@
+#!/usr/bin/python3
+
+# Convert a CSV file to PDF and put a header above it
+
+import csv
+import sys
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib import styles
+
+# Function to parse custom markers and convert them to Paragraph objects
+def format_cell(cell_content, styles):
+    # Print original cell content for debugging
+#    print("Original cell content:", cell_content)
+    
+    # Escape HTML-like special characters
+    cell_content = cell_content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    
+    # Replace markers with HTML-like tags
+    # Ensure correct replacement by using non-overlapping patterns
+    cell_content = cell_content.replace('**', '<b>', 1).replace('**', '</b>', 1)
+    cell_content = cell_content.replace('__', '<b>', 1).replace('__', '</b>', 1)
+    cell_content = cell_content.replace('_', '<i>', 1).replace('_', '</i>', 1)
+    
+    # Handle unbalanced tags by ensuring proper closure
+    open_bold = cell_content.count('<b>')
+    close_bold = cell_content.count('</b>')
+    if open_bold > close_bold:
+        cell_content += '</b>' * (open_bold - close_bold)
+    
+    open_italic = cell_content.count('<i>')
+    close_italic = cell_content.count('</i>')
+    if open_italic > close_italic:
+        cell_content += '</i>' * (open_italic - close_italic)
+    
+    # Print content after tag replacement and balancing for debugging
+#    print("After tag replacement:", cell_content)
+#    print("After tag balancing:", cell_content)
+    
+    # Return formatted content as a Paragraph
+    return Paragraph(cell_content, styles['BodyText'])
+
+
+
+
+
+def create_pdf(input_file, output_file, custom_text):
+    # Open the CSV file for reading
+    with open(input_file, 'r') as csv_file:
+        # Create a CSV reader object
+        reader = csv.reader(csv_file)
+
+        # Extract headers
+        headers = next(reader)
+
+        # Extract data rows
+        data = [row for row in reader]
+
+        # Create a PDF document
+        pdf = SimpleDocTemplate(output_file, pagesize=letter)
+        elements = []
+
+        # Add custom text above the table
+        if custom_text:
+            styles = getSampleStyleSheet()
+            custom_text = Paragraph(custom_text, styles['Title'])
+            elements.append(custom_text)
+            elements.append(Spacer(1, 12))  # Add blank line
+
+        # Process table data (convert special markers in CSV to formatted Paragraphs)
+        table_data = [headers]  # Start with headers
+        for row in data:
+            formatted_row = [format_cell(cell, styles) for cell in row]  # Format each cell
+            table_data.append(formatted_row)
+
+        # Create a table from the CSV data
+        #table_data = [headers] + data
+        table = Table(table_data, repeatRows=1)  # Repeat the header row on each page
+
+        # Customize table style
+        style = TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.white),  # Set header background to white
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),  # Set header text color to black
+            ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 8),  # Set header font to bold with size 8
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),  # Left-align all text
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),  # Add padding for header row
+            ('GRID', (0, 0), (-1, -1), 1, colors.black)  # Add grid to the entire table
+        ])
+
+        # Apply the table style
+        table.setStyle(style)
+
+
+        # Add table to the PDF document
+        elements.append(table)
+        pdf.build(elements)
+
+# Check if the correct number of command-line arguments are provided
+if len(sys.argv) < 3:
+    print("Usage: python script.py input_file output_file [custom_text]")
+    sys.exit(1)
+
+# Extract input and output file paths from command-line arguments
+input_file = sys.argv[1]
+output_file = sys.argv[2]
+
+# Extract custom text from command-line arguments if provided
+custom_text = None
+if len(sys.argv) > 3:
+    custom_text = sys.argv[3]
+
+# Call the function to create the PDF
+create_pdf(input_file, output_file, custom_text)
+

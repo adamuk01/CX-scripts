@@ -44,7 +44,7 @@ do
   remove_bins.py $f
 
   # Remove non league & DNFs
-  filter_results.py $f
+  filter_results.py $f -o modified${f}
 
   egrep "^Pos|,Junior," modified${f} > J-${f}
   egrep "^Pos|,Senior,|,Under 23," modified${f} > S-${f}
@@ -59,7 +59,7 @@ do
     filter_results_category.py $f
   done
 done
-filter_results.py S-Senior-results.csv
+filter_results.py S-Senior-results.csv -o modifiedS-Senior-results.csv
 
 
 # Now we can load the CSV files into databases:

@@ -1,110 +1,163 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
+"""
+update_averages.py
 
-# This looks at each riders overall position and updates the average based on number of rides
-# It rounds the average up
+Updates per-rider averages in a denormalised 'riders' table:
+- average_position: mean of r1..r12 overall positions (ignoring None/0/placeholder)
+- average_points:   mean of r1..r12 points (ignoring None/0/placeholder)
 
-import sqlite3
+Usage:
+  python update_averages.py /path/to/race.db
+  python update_averages.py /path/to/race.db --placeholder 999
+  python update_averages.py /path/to/race.db --dry-run
+"""
+
 import argparse
-import math
-
-parser = argparse.ArgumentParser(description="Update race average in DB file.")
-parser.add_argument("input_file", help="Path to the input DB file")
-args = parser.parse_args()
-
-db_file = args.input_file
-
-print("Updating database",db_file,"with new average values")
-
 import sqlite3
+from typing import Iterable, Tuple, Optional, Any
 
-def calculate_average(numbers):
-    # Remove None, 0, and non-numeric types
-    # cleaned_numbers = list(filter(lambda x: isinstance(x, (int, float)) and x != 0 and x is not None, numbers))
-    cleaned_numbers = list(filter(lambda x: isinstance(x, (int, float)) and x != 0 and x is not None and x != 999, numbers))
+POSITION_COLS = [
+    "r1_overall_position","r2_overall_position","r3_overall_position",
+    "r4_overall_position","r5_overall_position","r6_overall_position",
+    "r7_overall_position","r8_overall_position","r9_overall_position",
+    "r10_overall_position","r11_overall_position","r12_overall_position",
+]
+POINTS_COLS = [
+    "r1_points","r2_points","r3_points","r4_points","r5_points","r6_points",
+    "r7_points","r8_points","r9_points","r10_points","r11_points","r12_points",
+]
 
+def to_float(x: Any) -> Optional[float]:
+    if x is None:
+        return None
+    if isinstance(x, (int, float)):
+        return float(x)
+    s = str(x).strip()
+    if s == "":
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None
 
-    if cleaned_numbers:
-#        result = math.ceil(sum(cleaned_numbers) / len(cleaned_numbers))  # Calculate and round up the average
-        result = round(sum(cleaned_numbers) / len(cleaned_numbers)) # Round up or down based on point
-        #print ("Result:", result)
+def mean_filtered(values: Iterable[Any], placeholder: Optional[float] = 999.0, round_mode: str = "nearest"):
+    """
+    Compute mean ignoring None, 0, and placeholder.
+    Returns (mean_float_or_None, count_used)
+    """
+    cleaned = []
+    for v in values:
+        f = to_float(v)
+        if f is None:
+            continue
+        if f == 0:
+            continue
+        if placeholder is not None and f == float(placeholder):
+            continue
+        cleaned.append(f)
+
+    if not cleaned:
+        return None, 0
+
+    m = sum(cleaned) / len(cleaned)
+
+    if round_mode == "nearest":
+        return round(m), len(cleaned)  # integer style (for positions)
+    elif round_mode == "ceil":
+        import math
+        return math.ceil(m), len(cleaned)
+    elif round_mode == "floor":
+        import math
+        return math.floor(m), len(cleaned)
+    elif round_mode == "1dp":
+        return round(m, 1), len(cleaned)
     else:
-        result = 0  # Handle case where all values are None, 0, or non-numeric
+        return m, len(cleaned)
 
-    return result
+def ensure_columns(conn: sqlite3.Connection):
+    """Create average columns if they don't exist."""
+    cur = conn.cursor()
+    # Check pragma table_info to see if columns exist
+    cur.execute("PRAGMA table_info(riders)")
+    cols = {row[1] for row in cur.fetchall()}
+    stmts = []
+    if "average_position" not in cols:
+        stmts.append("ALTER TABLE riders ADD COLUMN average_position INTEGER")
+    if "average_points" not in cols:
+        stmts.append("ALTER TABLE riders ADD COLUMN average_points REAL")
+    for s in stmts:
+        cur.execute(s)
+    if stmts:
+        conn.commit()
 
-def calculate_average_real(numbers):
-    # Remove None, 0, and non-numeric types
-    # cleaned_numbers = list(filter(lambda x: isinstance(x, (int, float)) and x != 0 and x is not None, numbers))
-    cleaned_numbers = list(filter(lambda x: isinstance(x, (int, float)) and x != 0 and x is not None and x != 999, numbers))
+def update_averages(db_path: str, placeholder: float = 999.0, dry_run: bool = False) -> Tuple[int, int]:
+    conn = sqlite3.connect(db_path)
+    try:
+        ensure_columns(conn)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
 
-    if cleaned_numbers:
-        # Calculate the average and round it to 1 decimal place
-        result = round(sum(cleaned_numbers) / len(cleaned_numbers), 1)
-    else:
-        result = 0  # Handle case where all values are None, 0, or non-numeric
+        # Pull only the columns we need
+        select_cols = ["id"] + POSITION_COLS + POINTS_COLS
+        cur.execute(f"SELECT {', '.join(select_cols)} FROM riders")
+        rows = cur.fetchall()
 
-    return result
+        upd_pos = 0
+        upd_pts = 0
 
+        # Begin a transaction
+        cur.execute("BEGIN")
+        for row in rows:
+            rider_id = row["id"]
 
+            # Positions: integer average (nearest)
+            pos_vals = [row[c] for c in POSITION_COLS if c in row.keys()]
+            avg_pos, used_pos = mean_filtered(pos_vals, placeholder=placeholder, round_mode="nearest")
 
-def update_average_position(db_file):
-    conn = sqlite3.connect(db_file)
-    cursor = conn.cursor()
+            # Points: 1 decimal place
+            pts_vals = [row[c] for c in POINTS_COLS if c in row.keys()]
+            avg_pts_raw, used_pts = mean_filtered(pts_vals, placeholder=placeholder, round_mode="1dp")
 
-    # Iterate through each record in the database
-    query = f"SELECT {', '.join(fields)} FROM riders"
-    cursor.execute(query)
-    for row in cursor.fetchall():
-#        print ("row",row)
-        # Extract specific fields with numbers (some of which can be null)
-        numeric_fields = row[1:]
-#        print ("Numeric fields:",numeric_fields)
+            # Only update if we computed something (avoid writing 0s)
+            if avg_pos is not None:
+                upd_pos += 1
+                if not dry_run:
+                    cur.execute(
+                        "UPDATE riders SET average_position = ? WHERE id = ?",
+                        (int(avg_pos), rider_id),
+                    )
+            if avg_pts_raw is not None:
+                upd_pts += 1
+                if not dry_run:
+                    cur.execute(
+                        "UPDATE riders SET average_points = ? WHERE id = ?",
+                        (float(avg_pts_raw), rider_id),
+                    )
 
-        # Calculate the average of the extracted numeric fields
-        average = calculate_average(numeric_fields)
+        if dry_run:
+            conn.rollback()
+        else:
+            conn.commit()
 
-        if average is not None and average != 0:
-            # Update another field in the same record with the calculated average
-            cursor.execute("UPDATE riders SET average_position = ? WHERE id = ?", (average, row[0]))
-            # print ("UPDATE riders SET average_position = ",average," WHERE id = ",row[0])
+        return upd_pos, upd_pts
+    finally:
+        conn.close()
 
-    # Commit the changes and close the database connection
-    conn.commit()
-    conn.close()
+def main():
+    ap = argparse.ArgumentParser(description="Update rider averages in SQLite DB.")
+    ap.add_argument("input_file", help="Path to the SQLite DB file")
+    ap.add_argument("--placeholder", type=float, default=999.0,
+                    help="Value to treat as placeholder (ignored in averages). Default: 999")
+    ap.add_argument("--dry-run", action="store_true",
+                    help="Compute but do not write changes")
+    args = ap.parse_args()
 
-def update_average_points(db_file):
-    conn = sqlite3.connect(db_file)
-    cursor = conn.cursor()
+    print(f"Updating database {args.input_file} with new average values "
+          f"(placeholder={args.placeholder}{', DRY-RUN' if args.dry_run else ''})")
 
-    # Iterate through each record in the database
-    query = f"SELECT {', '.join(fields2)} FROM riders"
-    cursor.execute(query)
-    for row in cursor.fetchall():
-#        print ("row",row)
-        # Extract specific fields with numbers (some of which can be null)
-        numeric_fields = row[1:]
-#        print ("Numeric fields:",numeric_fields)
+    pos_count, pts_count = update_averages(args.input_file, placeholder=args.placeholder, dry_run=args.dry_run)
+    print(f"Updated average_position for {pos_count} riders; average_points for {pts_count} riders.")
 
-        # Calculate the average of the extracted numeric fields
-        average = calculate_average_real(numeric_fields)
-#        print (average)
+if __name__ == "__main__":
+    main()
 
-        if average is not None and average != 0:
-            # Update another field in the same record with the calculated average
-            cursor.execute("UPDATE riders SET average_points = ? WHERE id = ?", (average, row[0]))
-#            print ("Average is:", average)
-            # print ("UPDATE riders SET average_points = ",average," WHERE id = ",row[0])
-
-    # Commit the changes and close the database connection
-    conn.commit()
-    conn.close()
-
-
-# Example usage:
-fields = ['id', 'r1_overall_position', 'r2_overall_position', 'r3_overall_position', 'r4_overall_position', 'r5_overall_position', 'r6_overall_position', 'r7_overall_position', 'r8_overall_position', 'r9_overall_position', 'r10_overall_position', 'r11_overall_position', 'r12_overall_position']
-
-
-fields2 = ['id', 'r1_points', 'r2_points', 'r3_points', 'r4_points', 'r5_points', 'r6_points', 'r7_points', 'r8_points', 'r9_points', 'r10_points', 'r11_points', 'r12_points']
-
-update_average_position(db_file)
-update_average_points(db_file)

@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 #
-trap 'read -p "Press Enter to run: $BASH_COMMAND"' DEBUG
+#trap 'read -p "Press Enter to run: $BASH_COMMAND"' DEBUG
 
 # You need to change into the directory with ALL the results files & tell this script which week/round you are loading.
 
@@ -45,7 +45,7 @@ do
   remove_bins.py $f
 
   # Remove non league & DNFs
-  filter_results.py $f
+  filter_results.py $f -o modified${f}
 
   egrep "^Pos|,M 50-59," modified${f} > V50-${f}
   egrep "^Pos|,M 60\+," modified${f} > V60-${f}

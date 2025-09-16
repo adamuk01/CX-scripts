@@ -44,7 +44,7 @@ do
   remove_bins.py $f
 
   # Remove non league & DNFS
-  filter_results.py $f
+  filter_results.py $f -o modified${f}
 
   egrep "^Pos|Under 12" modified${f} | egrep "^Pos|,Female," > F-${f}
   egrep "^Pos|Under 12" modified${f} | egrep "^Pos|,Male," > M-${f}

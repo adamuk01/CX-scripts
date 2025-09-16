@@ -42,7 +42,7 @@ do
   remove_bins.py $f
 
   # Remove non league & DNFs
-  filter_results.py $f
+  filter_results.py $f -o modified${f}
 done
 
 

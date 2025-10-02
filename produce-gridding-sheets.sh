@@ -196,8 +196,8 @@ echo ",SENIOR/U23 RIDERS" >> Final-Senior.csv
 egrep "Senior|Under-23|SenM|U23M|Unknown" Race-Senior.csv >> Final-Senior.csv
 echo ",ANY OTHER U23/SENIOR RIDER!" >> Final-Senior.csv
 echo "," >> Final-Senior.csv
-echo ",V40 RIDERS" >> Final-Senior.csv
-egrep ",V4." Race-Senior.csv >> Final-Senior.csv
+echo ",M40 RIDERS" >> Final-Senior.csv
+egrep ",M4." Race-Senior.csv >> Final-Senior.csv
 
 
 # Vet50

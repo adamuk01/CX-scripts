@@ -48,7 +48,8 @@ do
   filter_results.py $f -o modified${f}
 
   egrep "^Pos|,M 50-59," modified${f} > V50-${f}
-  egrep "^Pos|,M 60\+," modified${f} > V60-${f}
+  egrep "^Pos|,M 60-69|M 70\+" modified${f} > V60-${f}
+  hack_M60.py V60-${f}
   
   # Now re-rank each category - This will produce "modifed" file.
   for f in V50-${f} V60-${f}
@@ -101,3 +102,4 @@ mv *leaguetable.csv LEAGUE_TABLES
 
 mkdir league-workingfiles
 mv modified*.csv league-workingfiles
+mv V60-Vet50-results.csv V50-Vet50-results.csv league-workingfiles

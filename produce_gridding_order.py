@@ -22,8 +22,17 @@ def dump_to_csv(db_file, table_name,fields):
     cursor = conn.cursor()
 
     # Execute SELECT query to fetch specific fields and sort the data
-    query = f"SELECT {', '.join(fields)}, firstname || ' ' || surname AS full_name, COALESCE(average_points, average_points_last_year) AS final_race_position FROM {table_name}     ORDER BY COALESCE(average_points, average_points_last_year) DESC NULLS LAST"
+#    query = f"SELECT {', '.join(fields)}, firstname || ' ' || surname AS full_name, COALESCE(average_points, average_points_last_year) AS final_race_position FROM {table_name}     ORDER BY COALESCE(average_points, average_points_last_year) DESC NULLS LAST"
 #    print ("Query:", query)
+    query = f"""
+SELECT {', '.join(fields)},
+       firstname || ' ' || surname AS full_name,
+       COALESCE(NULLIF(average_points, 0), average_points_last_year) AS final_points
+FROM {table_name}
+ORDER BY (final_points IS NULL) ASC, final_points DESC
+"""
+#    print ("Query:", query)
+
     cursor.execute(query)
 
     # Fetch the sorted data

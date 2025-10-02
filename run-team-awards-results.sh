@@ -38,12 +38,12 @@ set_999_averagepoints_to_zero.py AllRidersMerged.db
 
 echo Running Participation Award for the Mick Ives Trophy
 # This is the Participation Award for the Mick Ives Trophy
-../../bin/count_club_races.py AllRidersMerged.db > RidersTotalRaces.csv
+../../bin/count_club_races.py AllRidersMerged.db > ParticipationAward.csv
 
 echo Running TEAM COMPETITION - Highest scoring 6 riders from each club
 # TEAM COMPETITION - Highest scoring 6 riders from each club to score each round 
-echo "Position,Team,Points" > TeamCompetition-Kids.csv
-echo "Position,Team,Points" > TeamCompetition-Adults.csv
+echo "Position,Team,Points" > TeamCompetition-U12.csv
+echo "Position,Team,Points" > TeamCompetition-Senior+.csv
 ../../bin/produce_team_winners4.py U12RidersMerged.db |  sed 's/[][\/$*.^|@#{}~&()_:;%+"='\'',`><?!-]/ /g' | sed 's/  /,/g' | grep -v ",No Club Team" >> TeamCompetition-Kids.csv
 ../../bin/produce_team_winners4.py AdultRidersMerged.db | sed 's/[][\/$*.^|@#{}~&()_:;%+"='\'',`><?!-]/ /g' | sed 's/  /,/g' | grep -v ",No Club Team" >> TeamCompetition-Adults.csv
 

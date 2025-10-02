@@ -106,3 +106,5 @@ mkdir LEAGUE_TABLES 2>/dev/null
 mv *leaguetable.csv LEAGUE_TABLES
 
 mv S-Senior-results.csv league-workingfiles
+mv J-Senior-results V40-Senior-results.csv league-workingfiles
+

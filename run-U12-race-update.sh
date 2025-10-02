@@ -91,3 +91,4 @@ mv *leaguetable.csv LEAGUE_TABLES
 
 mkdir league-workingfiles
 mv modified*.csv league-workingfiles
+mv F-U12-results M-U12-results league-workingfiles
